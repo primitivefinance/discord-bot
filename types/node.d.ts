@@ -1,0 +1,6 @@
+declare namespace NodeJS {
+  export interface ProcessEnv {
+    TOKEN: string;
+    ALCHEMY_KEY: string;
+  }
+}

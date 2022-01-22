@@ -1,0 +1,32 @@
+{
+  "name": "discord-bot",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "yarn tsc && node ./build/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/primitivefinance/discord-bot.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/primitivefinance/discord-bot/issues"
+  },
+  "homepage": "https://github.com/primitivefinance/discord-bot#readme",
+  "dependencies": {
+    "@primitivefi/rmm-core": "^2.0.0-beta.5",
+    "@primitivefi/rmm-manager": "^2.0.0-beta.5",
+    "discord.js": "^13.6.0",
+    "dotenv": "^14.2.0",
+    "ethers": "^5.5.3",
+    "typescript": "^4.5.5"
+  },
+  "devDependencies": {
+    "ts-node": "^10.4.0"
+  }
+}
