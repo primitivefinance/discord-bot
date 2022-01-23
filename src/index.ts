@@ -1482,13 +1482,14 @@ const client = new Client({
 
 client.on('ready', async () => {
   console.log(`Logged in as ${client.user?.id}`);
+  client.user?.setActivity('Primitive pools', { type: 'WATCHING' });
 
   const provider = new providers.WebSocketProvider(
-    'wss://eth-mainnet.alchemyapi.io/v2/s33fwb9BGq-1_t_4G4u3stGB5pDU3g0f',
-    1,
+    'wss://eth-rinkeby.alchemyapi.io/v2/55XYQVY5-bFXCcxAKkKx2-qX0jCLU4C7',
+    4,
   );
 
-  console.log(await provider.lookupAddress('0xb8c2c29ee19d8307cb7255e1cd9cbde883a267d5'));
+  // console.log(await provider.lookupAddress('0xb8c2c29ee19d8307cb7255e1cd9cbde883a267d5'));
 
   const manager = new Contract(
     '0x24f2a98B9B92c5D00C746bc07cFcc4BA26956F8b',
@@ -1556,24 +1557,60 @@ client.on('ready', async () => {
 client.on('messageCreate', async (msg) => {
   if (msg.content.includes('!swap')) {
     const embed = new MessageEmbed()
-      .setTitle('New swap')
+      .setTitle('🔁 Swap')
+      .setURL('https://etherscan.io/tx/0xff82df3e9a0562f154d2f1600c02b8410a22cb082e1b67c317e56521c3c89bb0')
       .setAuthor({ name: 'nick.eth (0xff82...9bb0)', iconURL: 'https://metadata.ens.domains/mainnet/avatar/nick.eth', url: 'https://etherscan.io/tx/0xff82df3e9a0562f154d2f1600c02b8410a22cb082e1b67c317e56521c3c89bb0' })
-      .setURL('https://etherscan.io')
       .setDescription('**300 DAI** swapped for **1 ETH**')
-      .setTimestamp()
       .addFields(
-        { name: 'In', value: '3000 DAI', inline: true },
-        { name: 'Out', value: '1 ETH', inline: true },
-        { name: 'Transaction', value: '[0xff82...9bb0](https://etherscan.io/tx/0xff82df3e9a0562f154d2f1600c02b8410a22cb082e1b67c317e56521c3c89bb0)', inline: true },
+        { name: '🔥 Risky', value: 'ETH', inline: true },
+        { name: '💵 Stable', value: 'DAI', inline: true },
+        { name: '⌛️ Expiry', value: '2022/12/31', inline: true },
       )
-      // .setFooter({ text: '[See on Etherscan](https://etherscan.io/tx/0xff82df3e9a0562f154d2f1600c02b8410a22cb082e1b67c317e56521c3c89bb0)' })
-      // .setAuthor({ name: 'Some name', iconURL: 'https://i.imgur.com/AfFp7pu.png', url: 'https://discord.js.org' });
+      .setTimestamp()
+      .setFooter({ text: 'Ethereum Mainnet' })
 
       msg.channel.send({
         embeds: [embed],
       });
   }
-  // msg.reply('Please wait for your turn :eyes:');
+
+  if (msg.content.includes('!allocate')) {
+    const embed = new MessageEmbed()
+      .setTitle('⬇️ Allocate')
+      .setURL('https://etherscan.io/tx/0xff82df3e9a0562f154d2f1600c02b8410a22cb082e1b67c317e56521c3c89bb0')
+      .setAuthor({ name: 'nick.eth (0xff82...9bb0)', iconURL: 'https://metadata.ens.domains/mainnet/avatar/nick.eth', url: 'https://etherscan.io/tx/0xff82df3e9a0562f154d2f1600c02b8410a22cb082e1b67c317e56521c3c89bb0' })
+      .setDescription('**300 DAI** and **1 ETH** allocated (1.424 liquidity tokens)')
+      .addFields(
+        { name: '🔥 Risky', value: 'ETH', inline: true },
+        { name: '💵 Stable', value: 'DAI', inline: true },
+        { name: '⌛️ Expiry', value: '2022/12/31', inline: true },
+      )
+      .setTimestamp()
+      .setFooter({ text: 'Ethereum Mainnet' })
+
+      msg.channel.send({
+        embeds: [embed],
+      });
+  }
+
+  if (msg.content.includes('!remove')) {
+    const embed = new MessageEmbed()
+      .setTitle('⬆️ Remove')
+      .setURL('https://etherscan.io/tx/0xff82df3e9a0562f154d2f1600c02b8410a22cb082e1b67c317e56521c3c89bb0')
+      .setAuthor({ name: 'nick.eth (0xff82...9bb0)', iconURL: 'https://metadata.ens.domains/mainnet/avatar/nick.eth', url: 'https://etherscan.io/tx/0xff82df3e9a0562f154d2f1600c02b8410a22cb082e1b67c317e56521c3c89bb0' })
+      .setDescription('**300 DAI** and **1 ETH** removed (1.424 liquidity tokens)')
+      .addFields(
+        { name: '🔥 Risky', value: 'ETH', inline: true },
+        { name: '💵 Stable', value: 'DAI', inline: true },
+        { name: '⌛️ Expiry', value: '2022/12/31', inline: true },
+      )
+      .setTimestamp()
+      .setFooter({ text: 'Ethereum Mainnet' })
+
+      msg.channel.send({
+        embeds: [embed],
+      });
+  }
 });
 
 client.login(process.env.TOKEN);
