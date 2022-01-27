@@ -1,1480 +1,17 @@
-import { Channel, Client, MessageEmbed } from 'discord.js';
-import { Contract, providers } from 'ethers';
+import { TextChannel, Client, MessageEmbed, MessageAttachment } from 'discord.js';
+import { Contract, providers, utils, Wallet } from 'ethers';
 import dotenv from 'dotenv';
-// import { PrimitiveManager__factory } from '@primitivefi/rmm-manager/typechain/factories/PrimitiveManager__factory';
+import makeBlockie from 'ethereum-blockies-base64';
+import Canvas from 'canvas';
+import { abi as managerAbi } from '@primitivefi/rmm-manager/artifacts/contracts/PrimitiveManager.sol/PrimitiveManager.json';
+import { abi as engineAbi } from '@primitivefi/rmm-core/artifacts/contracts/PrimitiveEngine.sol/PrimitiveEngine.json';
+
+import erc20Abi from './abis/erc20.json';
+import aggregate from './multicall';
+
+import tokens from './tokens.json';
 
 dotenv.config();
-
-const abi = [
-  {
-    inputs: [
-      {
-        internalType: "address",
-        name: "factory_",
-        type: "address",
-      },
-      {
-        internalType: "address",
-        name: "WETH9_",
-        type: "address",
-      },
-      {
-        internalType: "address",
-        name: "positionDescriptor_",
-        type: "address",
-      },
-    ],
-    stateMutability: "nonpayable",
-    type: "constructor",
-  },
-  {
-    inputs: [
-      {
-        internalType: "uint256",
-        name: "balance",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "requiredAmount",
-        type: "uint256",
-      },
-    ],
-    name: "BalanceTooLowError",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "DeadlineReachedError",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "EngineNotDeployedError",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "InvalidSigError",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "LockedError",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "MinLiquidityOutError",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "MinRemoveOutError",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "NotEngineError",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "OnlyWETHError",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "SigExpiredError",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "TransferError",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "WrongConstructorParametersError",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "ZeroDelError",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "ZeroLiquidityError",
-    type: "error",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "address",
-        name: "payer",
-        type: "address",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "engine",
-        type: "address",
-      },
-      {
-        indexed: true,
-        internalType: "bytes32",
-        name: "poolId",
-        type: "bytes32",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "delLiquidity",
-        type: "uint256",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "delRisky",
-        type: "uint256",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "delStable",
-        type: "uint256",
-      },
-      {
-        indexed: false,
-        internalType: "bool",
-        name: "fromMargin",
-        type: "bool",
-      },
-    ],
-    name: "Allocate",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "address",
-        name: "account",
-        type: "address",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "operator",
-        type: "address",
-      },
-      {
-        indexed: false,
-        internalType: "bool",
-        name: "approved",
-        type: "bool",
-      },
-    ],
-    name: "ApprovalForAll",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "address",
-        name: "payer",
-        type: "address",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "engine",
-        type: "address",
-      },
-      {
-        indexed: true,
-        internalType: "bytes32",
-        name: "poolId",
-        type: "bytes32",
-      },
-      {
-        indexed: false,
-        internalType: "uint128",
-        name: "strike",
-        type: "uint128",
-      },
-      {
-        indexed: false,
-        internalType: "uint32",
-        name: "sigma",
-        type: "uint32",
-      },
-      {
-        indexed: false,
-        internalType: "uint32",
-        name: "maturity",
-        type: "uint32",
-      },
-      {
-        indexed: false,
-        internalType: "uint32",
-        name: "gamma",
-        type: "uint32",
-      },
-    ],
-    name: "Create",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "address",
-        name: "payer",
-        type: "address",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "recipient",
-        type: "address",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "engine",
-        type: "address",
-      },
-      {
-        indexed: false,
-        internalType: "address",
-        name: "risky",
-        type: "address",
-      },
-      {
-        indexed: false,
-        internalType: "address",
-        name: "stable",
-        type: "address",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "delRisky",
-        type: "uint256",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "delStable",
-        type: "uint256",
-      },
-    ],
-    name: "Deposit",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "address",
-        name: "payer",
-        type: "address",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "engine",
-        type: "address",
-      },
-      {
-        indexed: true,
-        internalType: "bytes32",
-        name: "poolId",
-        type: "bytes32",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "delLiquidity",
-        type: "uint256",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "delRisky",
-        type: "uint256",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "delStable",
-        type: "uint256",
-      },
-    ],
-    name: "Remove",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "address",
-        name: "payer",
-        type: "address",
-      },
-      {
-        indexed: false,
-        internalType: "address",
-        name: "recipient",
-        type: "address",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "engine",
-        type: "address",
-      },
-      {
-        indexed: true,
-        internalType: "bytes32",
-        name: "poolId",
-        type: "bytes32",
-      },
-      {
-        indexed: false,
-        internalType: "bool",
-        name: "riskyForStable",
-        type: "bool",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "deltaIn",
-        type: "uint256",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "deltaOut",
-        type: "uint256",
-      },
-      {
-        indexed: false,
-        internalType: "bool",
-        name: "fromMargin",
-        type: "bool",
-      },
-      {
-        indexed: false,
-        internalType: "bool",
-        name: "toMargin",
-        type: "bool",
-      },
-    ],
-    name: "Swap",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "address",
-        name: "operator",
-        type: "address",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "from",
-        type: "address",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "to",
-        type: "address",
-      },
-      {
-        indexed: false,
-        internalType: "uint256[]",
-        name: "ids",
-        type: "uint256[]",
-      },
-      {
-        indexed: false,
-        internalType: "uint256[]",
-        name: "values",
-        type: "uint256[]",
-      },
-    ],
-    name: "TransferBatch",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "address",
-        name: "operator",
-        type: "address",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "from",
-        type: "address",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "to",
-        type: "address",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "id",
-        type: "uint256",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "value",
-        type: "uint256",
-      },
-    ],
-    name: "TransferSingle",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: false,
-        internalType: "string",
-        name: "value",
-        type: "string",
-      },
-      {
-        indexed: true,
-        internalType: "uint256",
-        name: "id",
-        type: "uint256",
-      },
-    ],
-    name: "URI",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "address",
-        name: "payer",
-        type: "address",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "recipient",
-        type: "address",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "engine",
-        type: "address",
-      },
-      {
-        indexed: false,
-        internalType: "address",
-        name: "risky",
-        type: "address",
-      },
-      {
-        indexed: false,
-        internalType: "address",
-        name: "stable",
-        type: "address",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "delRisky",
-        type: "uint256",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "delStable",
-        type: "uint256",
-      },
-    ],
-    name: "Withdraw",
-    type: "event",
-  },
-  {
-    inputs: [],
-    name: "DOMAIN_SEPARATOR",
-    outputs: [
-      {
-        internalType: "bytes32",
-        name: "",
-        type: "bytes32",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "WETH9",
-    outputs: [
-      {
-        internalType: "address",
-        name: "",
-        type: "address",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "bytes32",
-        name: "poolId",
-        type: "bytes32",
-      },
-      {
-        internalType: "address",
-        name: "risky",
-        type: "address",
-      },
-      {
-        internalType: "address",
-        name: "stable",
-        type: "address",
-      },
-      {
-        internalType: "uint256",
-        name: "delRisky",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "delStable",
-        type: "uint256",
-      },
-      {
-        internalType: "bool",
-        name: "fromMargin",
-        type: "bool",
-      },
-      {
-        internalType: "uint256",
-        name: "minLiquidityOut",
-        type: "uint256",
-      },
-    ],
-    name: "allocate",
-    outputs: [
-      {
-        internalType: "uint256",
-        name: "delLiquidity",
-        type: "uint256",
-      },
-    ],
-    stateMutability: "payable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "uint256",
-        name: "delRisky",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "delStable",
-        type: "uint256",
-      },
-      {
-        internalType: "bytes",
-        name: "data",
-        type: "bytes",
-      },
-    ],
-    name: "allocateCallback",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "address",
-        name: "account",
-        type: "address",
-      },
-      {
-        internalType: "uint256",
-        name: "id",
-        type: "uint256",
-      },
-    ],
-    name: "balanceOf",
-    outputs: [
-      {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "address[]",
-        name: "accounts",
-        type: "address[]",
-      },
-      {
-        internalType: "uint256[]",
-        name: "ids",
-        type: "uint256[]",
-      },
-    ],
-    name: "balanceOfBatch",
-    outputs: [
-      {
-        internalType: "uint256[]",
-        name: "",
-        type: "uint256[]",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "address",
-        name: "risky",
-        type: "address",
-      },
-      {
-        internalType: "address",
-        name: "stable",
-        type: "address",
-      },
-      {
-        internalType: "uint128",
-        name: "strike",
-        type: "uint128",
-      },
-      {
-        internalType: "uint32",
-        name: "sigma",
-        type: "uint32",
-      },
-      {
-        internalType: "uint32",
-        name: "maturity",
-        type: "uint32",
-      },
-      {
-        internalType: "uint32",
-        name: "gamma",
-        type: "uint32",
-      },
-      {
-        internalType: "uint256",
-        name: "riskyPerLp",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "delLiquidity",
-        type: "uint256",
-      },
-    ],
-    name: "create",
-    outputs: [
-      {
-        internalType: "bytes32",
-        name: "poolId",
-        type: "bytes32",
-      },
-      {
-        internalType: "uint256",
-        name: "delRisky",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "delStable",
-        type: "uint256",
-      },
-    ],
-    stateMutability: "payable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "uint256",
-        name: "delRisky",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "delStable",
-        type: "uint256",
-      },
-      {
-        internalType: "bytes",
-        name: "data",
-        type: "bytes",
-      },
-    ],
-    name: "createCallback",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "address",
-        name: "recipient",
-        type: "address",
-      },
-      {
-        internalType: "address",
-        name: "risky",
-        type: "address",
-      },
-      {
-        internalType: "address",
-        name: "stable",
-        type: "address",
-      },
-      {
-        internalType: "uint256",
-        name: "delRisky",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "delStable",
-        type: "uint256",
-      },
-    ],
-    name: "deposit",
-    outputs: [],
-    stateMutability: "payable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "uint256",
-        name: "delRisky",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "delStable",
-        type: "uint256",
-      },
-      {
-        internalType: "bytes",
-        name: "data",
-        type: "bytes",
-      },
-    ],
-    name: "depositCallback",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "factory",
-    outputs: [
-      {
-        internalType: "address",
-        name: "",
-        type: "address",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "address",
-        name: "account",
-        type: "address",
-      },
-      {
-        internalType: "address",
-        name: "operator",
-        type: "address",
-      },
-    ],
-    name: "isApprovedForAll",
-    outputs: [
-      {
-        internalType: "bool",
-        name: "",
-        type: "bool",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "address",
-        name: "",
-        type: "address",
-      },
-      {
-        internalType: "address",
-        name: "",
-        type: "address",
-      },
-    ],
-    name: "margins",
-    outputs: [
-      {
-        internalType: "uint128",
-        name: "balanceRisky",
-        type: "uint128",
-      },
-      {
-        internalType: "uint128",
-        name: "balanceStable",
-        type: "uint128",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "bytes[]",
-        name: "data",
-        type: "bytes[]",
-      },
-    ],
-    name: "multicall",
-    outputs: [
-      {
-        internalType: "bytes[]",
-        name: "results",
-        type: "bytes[]",
-      },
-    ],
-    stateMutability: "payable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "address",
-        name: "",
-        type: "address",
-      },
-    ],
-    name: "nonces",
-    outputs: [
-      {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "address",
-        name: "owner",
-        type: "address",
-      },
-      {
-        internalType: "address",
-        name: "operator",
-        type: "address",
-      },
-      {
-        internalType: "bool",
-        name: "approved",
-        type: "bool",
-      },
-      {
-        internalType: "uint256",
-        name: "deadline",
-        type: "uint256",
-      },
-      {
-        internalType: "uint8",
-        name: "v",
-        type: "uint8",
-      },
-      {
-        internalType: "bytes32",
-        name: "r",
-        type: "bytes32",
-      },
-      {
-        internalType: "bytes32",
-        name: "s",
-        type: "bytes32",
-      },
-    ],
-    name: "permit",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "positionDescriptor",
-    outputs: [
-      {
-        internalType: "address",
-        name: "",
-        type: "address",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "refundETH",
-    outputs: [],
-    stateMutability: "payable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "address",
-        name: "engine",
-        type: "address",
-      },
-      {
-        internalType: "bytes32",
-        name: "poolId",
-        type: "bytes32",
-      },
-      {
-        internalType: "uint256",
-        name: "delLiquidity",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "minRiskyOut",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "minStableOut",
-        type: "uint256",
-      },
-    ],
-    name: "remove",
-    outputs: [
-      {
-        internalType: "uint256",
-        name: "delRisky",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "delStable",
-        type: "uint256",
-      },
-    ],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "address",
-        name: "from",
-        type: "address",
-      },
-      {
-        internalType: "address",
-        name: "to",
-        type: "address",
-      },
-      {
-        internalType: "uint256[]",
-        name: "ids",
-        type: "uint256[]",
-      },
-      {
-        internalType: "uint256[]",
-        name: "amounts",
-        type: "uint256[]",
-      },
-      {
-        internalType: "bytes",
-        name: "data",
-        type: "bytes",
-      },
-    ],
-    name: "safeBatchTransferFrom",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "address",
-        name: "from",
-        type: "address",
-      },
-      {
-        internalType: "address",
-        name: "to",
-        type: "address",
-      },
-      {
-        internalType: "uint256",
-        name: "id",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "amount",
-        type: "uint256",
-      },
-      {
-        internalType: "bytes",
-        name: "data",
-        type: "bytes",
-      },
-    ],
-    name: "safeTransferFrom",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "address",
-        name: "token",
-        type: "address",
-      },
-      {
-        internalType: "uint256",
-        name: "value",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "deadline",
-        type: "uint256",
-      },
-      {
-        internalType: "uint8",
-        name: "v",
-        type: "uint8",
-      },
-      {
-        internalType: "bytes32",
-        name: "r",
-        type: "bytes32",
-      },
-      {
-        internalType: "bytes32",
-        name: "s",
-        type: "bytes32",
-      },
-    ],
-    name: "selfPermit",
-    outputs: [],
-    stateMutability: "payable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "address",
-        name: "token",
-        type: "address",
-      },
-      {
-        internalType: "uint256",
-        name: "nonce",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "expiry",
-        type: "uint256",
-      },
-      {
-        internalType: "uint8",
-        name: "v",
-        type: "uint8",
-      },
-      {
-        internalType: "bytes32",
-        name: "r",
-        type: "bytes32",
-      },
-      {
-        internalType: "bytes32",
-        name: "s",
-        type: "bytes32",
-      },
-    ],
-    name: "selfPermitAllowed",
-    outputs: [],
-    stateMutability: "payable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "address",
-        name: "token",
-        type: "address",
-      },
-      {
-        internalType: "uint256",
-        name: "nonce",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "expiry",
-        type: "uint256",
-      },
-      {
-        internalType: "uint8",
-        name: "v",
-        type: "uint8",
-      },
-      {
-        internalType: "bytes32",
-        name: "r",
-        type: "bytes32",
-      },
-      {
-        internalType: "bytes32",
-        name: "s",
-        type: "bytes32",
-      },
-    ],
-    name: "selfPermitAllowedIfNecessary",
-    outputs: [],
-    stateMutability: "payable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "address",
-        name: "token",
-        type: "address",
-      },
-      {
-        internalType: "uint256",
-        name: "value",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "deadline",
-        type: "uint256",
-      },
-      {
-        internalType: "uint8",
-        name: "v",
-        type: "uint8",
-      },
-      {
-        internalType: "bytes32",
-        name: "r",
-        type: "bytes32",
-      },
-      {
-        internalType: "bytes32",
-        name: "s",
-        type: "bytes32",
-      },
-    ],
-    name: "selfPermitIfNecessary",
-    outputs: [],
-    stateMutability: "payable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "address",
-        name: "operator",
-        type: "address",
-      },
-      {
-        internalType: "bool",
-        name: "approved",
-        type: "bool",
-      },
-    ],
-    name: "setApprovalForAll",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "bytes4",
-        name: "interfaceId",
-        type: "bytes4",
-      },
-    ],
-    name: "supportsInterface",
-    outputs: [
-      {
-        internalType: "bool",
-        name: "",
-        type: "bool",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        components: [
-          {
-            internalType: "address",
-            name: "recipient",
-            type: "address",
-          },
-          {
-            internalType: "address",
-            name: "risky",
-            type: "address",
-          },
-          {
-            internalType: "address",
-            name: "stable",
-            type: "address",
-          },
-          {
-            internalType: "bytes32",
-            name: "poolId",
-            type: "bytes32",
-          },
-          {
-            internalType: "bool",
-            name: "riskyForStable",
-            type: "bool",
-          },
-          {
-            internalType: "uint256",
-            name: "deltaIn",
-            type: "uint256",
-          },
-          {
-            internalType: "uint256",
-            name: "deltaOut",
-            type: "uint256",
-          },
-          {
-            internalType: "bool",
-            name: "fromMargin",
-            type: "bool",
-          },
-          {
-            internalType: "bool",
-            name: "toMargin",
-            type: "bool",
-          },
-          {
-            internalType: "uint256",
-            name: "deadline",
-            type: "uint256",
-          },
-        ],
-        internalType: "struct ISwapManager.SwapParams",
-        name: "params",
-        type: "tuple",
-      },
-    ],
-    name: "swap",
-    outputs: [],
-    stateMutability: "payable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "uint256",
-        name: "delRisky",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "delStable",
-        type: "uint256",
-      },
-      {
-        internalType: "bytes",
-        name: "data",
-        type: "bytes",
-      },
-    ],
-    name: "swapCallback",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "address",
-        name: "token",
-        type: "address",
-      },
-      {
-        internalType: "uint256",
-        name: "amountMin",
-        type: "uint256",
-      },
-      {
-        internalType: "address",
-        name: "recipient",
-        type: "address",
-      },
-    ],
-    name: "sweepToken",
-    outputs: [],
-    stateMutability: "payable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "uint256",
-        name: "amountMin",
-        type: "uint256",
-      },
-      {
-        internalType: "address",
-        name: "recipient",
-        type: "address",
-      },
-    ],
-    name: "unwrap",
-    outputs: [],
-    stateMutability: "payable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "uint256",
-        name: "tokenId",
-        type: "uint256",
-      },
-    ],
-    name: "uri",
-    outputs: [
-      {
-        internalType: "string",
-        name: "",
-        type: "string",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "address",
-        name: "recipient",
-        type: "address",
-      },
-      {
-        internalType: "address",
-        name: "engine",
-        type: "address",
-      },
-      {
-        internalType: "uint256",
-        name: "delRisky",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "delStable",
-        type: "uint256",
-      },
-    ],
-    name: "withdraw",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "uint256",
-        name: "value",
-        type: "uint256",
-      },
-    ],
-    name: "wrap",
-    outputs: [],
-    stateMutability: "payable",
-    type: "function",
-  },
-  {
-    stateMutability: "payable",
-    type: "receive",
-  },
-];
 
 const client = new Client({
   intents: ['GUILDS', 'GUILD_MESSAGES'],
@@ -1489,21 +26,21 @@ client.on('ready', async () => {
     4,
   );
 
-  // console.log(await provider.lookupAddress('0xb8c2c29ee19d8307cb7255e1cd9cbde883a267d5'));
-
   const manager = new Contract(
     '0x24f2a98B9B92c5D00C746bc07cFcc4BA26956F8b',
-    abi,
+    managerAbi,
     provider,
   );
 
-  manager.on('Allocate', (
-    payer,
-    engine,
-    poolId,
-    delLiquidity,
-    delRisky,
-    delStable,
+  manager.on('Allocate', async (
+    payer: any,
+    engine: any,
+    poolId: any,
+    delLiquidity: any,
+    delRisky: any,
+    delStable: any,
+    fromMargin: any,
+    event: any,
   ) => {
     console.log(
       payer,
@@ -1512,7 +49,143 @@ client.on('ready', async () => {
       delLiquidity,
       delRisky,
       delStable,
+      fromMargin,
+      event,
     );
+
+    const authorShortAddress = `${payer.substr(0, 6)}...${payer.substr(-4)}`;
+    const ens = await provider.lookupAddress(payer);
+
+    let avatar;
+    let attachment;
+
+    if (ens) {
+      avatar = await provider.getAvatar(ens);
+    } else {
+      attachment = new MessageAttachment(
+        Buffer.from(makeBlockie(payer).split(',')[1], 'base64'),
+        'blockie.png'
+      );
+    }
+
+    const engineInterface = new utils.Interface(engineAbi);
+
+    const decodedEngineCall = await aggregate(
+      provider,
+      '0x42Ad527de7d4e9d9d011aC45B31D8551f8Fe9821',
+      [
+        {
+          target: engine,
+          interface: engineInterface,
+          function: 'calibrations',
+          values: [poolId],
+        },
+        {
+          target: engine,
+          interface: engineInterface,
+          function: 'risky',
+        },
+        {
+          target: engine,
+          interface: engineInterface,
+          function: 'stable',
+        },
+      ],
+    );
+
+    console.log(decodedEngineCall);
+
+    const tokenInterface = new utils.Interface(erc20Abi);
+
+    const decodedTokensCall = await aggregate(
+      provider,
+      '0x42Ad527de7d4e9d9d011aC45B31D8551f8Fe9821',
+      [
+        {
+          target: decodedEngineCall[1][0],
+          interface: tokenInterface,
+          function: 'symbol',
+        },
+        {
+          target: decodedEngineCall[1][0],
+          interface: tokenInterface,
+          function: 'decimals',
+        },
+        {
+          target: decodedEngineCall[2][0],
+          interface: tokenInterface,
+          function: 'symbol',
+        },
+        {
+          target: decodedEngineCall[2][0],
+          interface: tokenInterface,
+          function: 'decimals',
+        },
+      ],
+    );
+
+    console.log(decodedTokensCall);
+
+    const canvas = Canvas.createCanvas(256, 256);
+    const context = canvas.getContext('2d');
+
+    const riskyIcon = tokens.tokens.find((obj) => obj.symbol === decodedTokensCall[0][0]);
+    const stableIcon = tokens.tokens.find((obj) => obj.symbol === decodedTokensCall[2][0]);
+
+    const riskyIconImage = await Canvas.loadImage(riskyIcon ? riskyIcon.logoURI : 'https://ipfs.io/ipfs/QmewoJ1H4nRK5VKf9t8bi9qX7Xqb9iKyTXsWAcsY4qswgn');
+    context.drawImage(riskyIconImage, 0, 0, 128, 256, 0, 0, 128, 256);
+
+    const stableIconImage = await Canvas.loadImage(stableIcon ? stableIcon.logoURI : 'https://ipfs.io/ipfs/QmewoJ1H4nRK5VKf9t8bi9qX7Xqb9iKyTXsWAcsY4qswgn');
+    context.drawImage(stableIconImage, 128, 0, 128, 256, 128, 0, 128, 256);
+
+    const thumbnailAttachment = new MessageAttachment(canvas.toBuffer(), 'thumb.png');
+
+    const embed = new MessageEmbed()
+      .setTitle('⬇️ Allocate')
+      .setURL(`https://rinkeby.etherscan.io/tx/${event.transactionHash}`)
+      .setAuthor({
+        name: ens ? `${ens} (${authorShortAddress})` : authorShortAddress,
+        url: `https://rinkeby.etherscan.io/address/${payer}`,
+        iconURL: avatar ? avatar : 'attachment://blockie.png',
+      })
+      .setThumbnail('attachment://thumb.png')
+      .setDescription(
+        'Liquidity added'
+      )
+      .addFields(
+        {
+          name: '🔥 Risky',
+          value: `${utils.formatUnits(delRisky, decodedTokensCall[1][0])} ${decodedTokensCall[0][0]}`,
+          inline: true
+        },
+        {
+          name: '💵 Stable',
+          value: `${utils.formatUnits(delStable, decodedTokensCall[3][0])} ${decodedTokensCall[2][0]}`,
+          inline: true
+        },
+        {
+          name: '💧 Liquidity Tokens',
+          value: utils.formatUnits(delLiquidity, decodedTokensCall[1][0]),
+          inline: true,
+        },
+        { name: '⌛️ Maturity', value: new Date(decodedEngineCall[0].maturity * 1000).toISOString().split('T')[0], inline: true },
+        {
+          name: '⚡️ Strike',
+          value: `${utils.formatUnits(decodedEngineCall[0].strike, decodedTokensCall[3][0])} ${decodedTokensCall[2][0]}`,
+          inline: true
+        },
+        { name: '🌪 Gamma', value: decodedEngineCall[0].gamma.toString(), inline: true },
+        { name: '🌪 Sigma', value: decodedEngineCall[0].sigma.toString(), inline: true },
+      )
+      .setTimestamp()
+      .setFooter({ text: 'Rinkeby', iconURL: 'https://ethereum.org/static/a183661dd70e0e5c70689a0ec95ef0ba/81d9f/eth-diamond-purple.webp' })
+
+      const channel = client.channels.cache.get('934553459787718706') as TextChannel;
+
+      channel.send({
+        embeds: [embed],
+        files: attachment ? [attachment, thumbnailAttachment] : [thumbnailAttachment],
+      });
   });
 
   manager.on('Remove', (
@@ -1556,10 +229,19 @@ client.on('ready', async () => {
 
 client.on('messageCreate', async (msg) => {
   if (msg.content.includes('!swap')) {
+    const attachment = new MessageAttachment(
+      Buffer.from(makeBlockie('0x7cB57B5A97eAbe94205C07890BE4c1aD31E486A8').split(',')[1], 'base64'),
+      'blockie.png'
+    );
+
     const embed = new MessageEmbed()
       .setTitle('🔁 Swap')
       .setURL('https://etherscan.io/tx/0xff82df3e9a0562f154d2f1600c02b8410a22cb082e1b67c317e56521c3c89bb0')
-      .setAuthor({ name: 'nick.eth (0xff82...9bb0)', iconURL: 'https://metadata.ens.domains/mainnet/avatar/nick.eth', url: 'https://etherscan.io/tx/0xff82df3e9a0562f154d2f1600c02b8410a22cb082e1b67c317e56521c3c89bb0' })
+      .setAuthor({
+        name: 'nick.eth (0xff82...9bb0)',
+        iconURL: 'attachment://blockie.png',
+        url: 'https://etherscan.io/tx/0xff82df3e9a0562f154d2f1600c02b8410a22cb082e1b67c317e56521c3c89bb0',
+      })
       .setDescription('**300 DAI** swapped for **1 ETH**')
       .addFields(
         { name: '🔥 Risky', value: 'ETH', inline: true },
@@ -1567,10 +249,11 @@ client.on('messageCreate', async (msg) => {
         { name: '⌛️ Expiry', value: '2022/12/31', inline: true },
       )
       .setTimestamp()
-      .setFooter({ text: 'Ethereum Mainnet' })
+      .setFooter({ text: 'Ethereum Mainnet' });
 
       msg.channel.send({
         embeds: [embed],
+        files: [attachment],
       });
   }
 
