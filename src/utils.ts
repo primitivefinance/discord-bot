@@ -4,15 +4,21 @@ import {
   utils,
 } from 'ethers';
 import Canvas from 'canvas';
-import { MessageAttachment } from 'discord.js';
+import { MessageAttachment, MessageEmbed } from 'discord.js';
 import makeBlockie from 'ethereum-blockies-base64';
 import { abi as engineAbi } from '@primitivefi/rmm-core/artifacts/contracts/PrimitiveEngine.sol/PrimitiveEngine.json';
 import { getSpotPrice } from '@primitivefi/rmm-math';
 
 import erc20Abi from './abis/erc20.json';
 import aggregate from './multicall';
-
 import tokens from './tokens.json';
+
+export function getPrettyAmount(amount: string) {
+  const split = amount.split('.');
+
+  const decimals = split[1] === '0' ? '' : `.${split[1].substr(0, 4)}`;
+  return `${split[0]}${decimals}`;
+}
 
 export async function getEngineInfo(
   provider: providers.WebSocketProvider | providers.JsonRpcProvider,
@@ -150,7 +156,7 @@ export async function getPayerInfo(
   iconURL: string,
   attachment?: MessageAttachment,
 }> {
-  const payerShort = `${payer.substring(0, 6)}...${payer.substring(-4)}`;
+  const payerShort = `${payer.substr(0, 6)}...${payer.substr(-4)}`;
 
   try {
     const ens = await provider.lookupAddress(payer);
@@ -187,7 +193,7 @@ export function formatStrike(
   stableDecimals: BigNumberish,
   stableSymbol: string,
 ): string {
-  return `${utils.formatUnits(strike, stableDecimals)} ${stableSymbol}`;
+  return `${getPrettyAmount(utils.formatUnits(strike, stableDecimals))} ${stableSymbol}`;
 }
 
 export function formatGamma(gamma: number): string {
@@ -203,7 +209,7 @@ export function formatReserve(
   decimals: BigNumberish,
   symbol: string,
 ): string {
-  return `${utils.formatUnits(reserve, decimals)} ${symbol}`;
+  return `${getPrettyAmount(utils.formatUnits(reserve, decimals))} ${symbol}`;
 }
 
 export function formatSpotprice(
@@ -229,4 +235,108 @@ export function formatSpotprice(
   );
 
   return spotPrice;
+}
+
+export async function getEmbedMessage(
+  title: string,
+  action: string,
+  provider: providers.WebSocketProvider | providers.JsonRpcProvider,
+  multicallAddress: string,
+  payer: any,
+  engine: any,
+  poolId: any,
+  delLiquidity: any,
+  delRisky: any,
+  delStable: any,
+  event: any,
+): Promise<{
+  embeds: MessageEmbed[],
+  files: MessageAttachment[]
+}> {
+  try {
+    const engineInfo = await getEngineInfo(
+      provider,
+      multicallAddress,
+      engine,
+      poolId,
+    );
+
+    const tokensInfo = await getTokensInfo(
+      provider,
+      multicallAddress,
+      engineInfo.riskyAddress,
+      engineInfo.stableAddress,
+    );
+
+    const author = await getPayerInfo(provider, payer);
+
+    const embed = new MessageEmbed()
+      .setTitle(title)
+      .setURL(`https://rinkeby.etherscan.io/tx/${event.transactionHash}`)
+      .setAuthor({
+        name: author.name,
+        url: author.url,
+        iconURL: author.iconURL,
+      })
+      .setThumbnail('attachment://thumb.png')
+      .setDescription(
+        `**${getPrettyAmount(utils.formatUnits(delRisky, tokensInfo.riskyDecimals))} ${tokensInfo.riskySymbol}** and **${getPrettyAmount(utils.formatUnits(delStable, tokensInfo.stableDecimals))} ${tokensInfo.stableSymbol}** (${getPrettyAmount(utils.formatUnits(delLiquidity, tokensInfo.riskyDecimals))} liquidity pool tokens) were ${action} this [pool](https://app.primitive.finance/):`,
+      )
+      .addFields(
+        {
+          name: '🔥 Risky',
+          value: `[${tokensInfo.riskySymbol}](https://rinkeby.etherscan.io/address/${engineInfo.riskyAddress})`,
+          inline: true
+        },
+        {
+          name: '💵 Stable',
+          value: `[${tokensInfo.stableSymbol}](https://rinkeby.etherscan.io/address/${engineInfo.stableAddress})`,
+          inline: true
+        },
+        {
+          name: '⌛️ Maturity',
+          value: formatMaturity(engineInfo.calibration.maturity),
+          inline: true,
+        },
+        {
+          name: '⚡️ Strike',
+          value: formatStrike(engineInfo.calibration.strike, tokensInfo.stableDecimals, tokensInfo.stableSymbol),
+          inline: true
+        },
+        {
+          name: '🌪 Gamma',
+          value: formatGamma(engineInfo.calibration.gamma),
+          inline: true,
+        },
+        {
+          name: '🌪 Sigma',
+          value: formatSigma(engineInfo.calibration.sigma),
+          inline: true,
+        },
+        {
+          name: '🔥 Risky reserve',
+          value: formatReserve(engineInfo.reserve.reserveRisky, tokensInfo.riskyDecimals, tokensInfo.riskySymbol),
+          inline: true
+        },
+        {
+          name: '💵 Stable reserve',
+          value: formatReserve(engineInfo.reserve.reserveStable, tokensInfo.stableDecimals, tokensInfo.stableSymbol),
+          inline: true
+        },
+      )
+      .setTimestamp()
+      .setFooter({ text: 'Rinkeby', iconURL: 'https://ethereum.org/static/a183661dd70e0e5c70689a0ec95ef0ba/81d9f/eth-diamond-purple.webp' })
+
+    const thumbnailAttachment = await getThumbnail(
+      tokensInfo.riskySymbol,
+      tokensInfo.stableSymbol,
+    );
+
+    return {
+      embeds: [embed],
+      files: author.attachment ? [author.attachment, thumbnailAttachment] : [thumbnailAttachment],
+    };
+  } catch (e) {
+    throw new Error(`Cannot get embed message: ${e}`);
+  }
 }
