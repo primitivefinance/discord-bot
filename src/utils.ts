@@ -1,5 +1,6 @@
 import {
   BigNumberish,
+  Event,
   providers,
   utils,
 } from 'ethers';
@@ -237,18 +238,18 @@ export function formatSpotprice(
   return spotPrice;
 }
 
-export async function getEmbedMessage(
+export async function getLiquidityEmbedMessage(
   title: string,
   action: string,
   provider: providers.WebSocketProvider | providers.JsonRpcProvider,
   multicallAddress: string,
-  payer: any,
-  engine: any,
-  poolId: any,
-  delLiquidity: any,
-  delRisky: any,
-  delStable: any,
-  event: any,
+  payer: string,
+  engine: string,
+  poolId: BigNumberish,
+  delLiquidity: BigNumberish,
+  delRisky: BigNumberish,
+  delStable: BigNumberish,
+  event: Event,
 ): Promise<{
   embeds: MessageEmbed[],
   files: MessageAttachment[]
