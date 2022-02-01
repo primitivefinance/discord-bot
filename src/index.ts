@@ -1,9 +1,9 @@
 import { TextChannel, Client, MessageEmbed } from 'discord.js';
-import { Contract, providers } from 'ethers';
+import { BigNumberish, Contract, providers } from 'ethers';
 import dotenv from 'dotenv';
 import { abi as managerAbi } from '@primitivefi/rmm-manager/artifacts/contracts/PrimitiveManager.sol/PrimitiveManager.json';
 
-import { getEmbedMessage } from './utils';
+import { getLiquidityEmbedMessage } from './utils';
 
 dotenv.config();
 
@@ -27,16 +27,16 @@ client.on('ready', async () => {
   );
 
   manager.on('Allocate', async (
-    payer: any,
-    engine: any,
-    poolId: any,
-    delLiquidity: any,
-    delRisky: any,
-    delStable: any,
-    fromMargin: any,
+    payer: string,
+    engine: string,
+    poolId: BigNumberish,
+    delLiquidity: BigNumberish,
+    delRisky: BigNumberish,
+    delStable: BigNumberish,
+    fromMargin: boolean,
     event: any,
   ) => {
-    const embedMessage = await getEmbedMessage(
+    const embedMessage = await getLiquidityEmbedMessage(
       'Liquidity allocated',
       'allocated into',
       provider,
@@ -59,15 +59,15 @@ client.on('ready', async () => {
   });
 
   manager.on('Remove', async (
-    payer,
-    engine,
-    poolId,
-    delLiquidity,
-    delRisky,
-    delStable,
+    payer: string,
+    engine: string,
+    poolId: BigNumberish,
+    delLiquidity: BigNumberish,
+    delRisky: BigNumberish,
+    delStable: BigNumberish,
     event,
   ) => {
-    const embedMessage = await getEmbedMessage(
+    const embedMessage = await getLiquidityEmbedMessage(
       'Liquidity removed',
       'removed from',
       provider,
