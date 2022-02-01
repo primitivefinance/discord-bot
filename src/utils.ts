@@ -338,6 +338,106 @@ export async function getLiquidityEmbedMessage(
       files: author.attachment ? [author.attachment, thumbnailAttachment] : [thumbnailAttachment],
     };
   } catch (e) {
-    throw new Error(`Cannot get embed message: ${e}`);
+    throw new Error(`Cannot get liquidity embed message: ${e}`);
+  }
+}
+
+export async function getCreateEmbedMessage(
+  provider: providers.WebSocketProvider | providers.JsonRpcProvider,
+  multicallAddress: string,
+  payer: string,
+  engine: string,
+  poolId: BigNumberish,
+  delLiquidity: BigNumberish,
+  event: Event,
+): Promise<{
+  embeds: MessageEmbed[],
+  files: MessageAttachment[]
+}> {
+  try {
+    const engineInfo = await getEngineInfo(
+      provider,
+      multicallAddress,
+      engine,
+      poolId,
+    );
+
+    const tokensInfo = await getTokensInfo(
+      provider,
+      multicallAddress,
+      engineInfo.riskyAddress,
+      engineInfo.stableAddress,
+    );
+
+    const author = await getPayerInfo(provider, payer);
+
+    const embed = new MessageEmbed()
+      .setTitle('Pool created')
+      .setURL(`https://rinkeby.etherscan.io/tx/${event.transactionHash}`)
+      .setAuthor({
+        name: author.name,
+        url: author.url,
+        iconURL: author.iconURL,
+      })
+      .setThumbnail('attachment://thumb.png')
+      .setDescription(
+        `**${getPrettyAmount(utils.formatUnits(engineInfo.reserve.reserveRisky, tokensInfo.riskyDecimals))} ${tokensInfo.riskySymbol}** and **${getPrettyAmount(utils.formatUnits(engineInfo.reserve.reserveStable, tokensInfo.stableDecimals))} ${tokensInfo.stableSymbol}** (${getPrettyAmount(utils.formatUnits(delLiquidity, tokensInfo.riskyDecimals))} liquidity pool tokens) were deposited during the creation of this [pool](https://app.primitive.finance/):`,
+      )
+      .addFields(
+        {
+          name: '🔥 Risky',
+          value: `[${tokensInfo.riskySymbol}](https://rinkeby.etherscan.io/address/${engineInfo.riskyAddress})`,
+          inline: true
+        },
+        {
+          name: '💵 Stable',
+          value: `[${tokensInfo.stableSymbol}](https://rinkeby.etherscan.io/address/${engineInfo.stableAddress})`,
+          inline: true
+        },
+        {
+          name: '⌛️ Maturity',
+          value: formatMaturity(engineInfo.calibration.maturity),
+          inline: true,
+        },
+        {
+          name: '⚡️ Strike',
+          value: formatStrike(engineInfo.calibration.strike, tokensInfo.stableDecimals, tokensInfo.stableSymbol),
+          inline: true
+        },
+        {
+          name: '🌪 Gamma',
+          value: formatGamma(engineInfo.calibration.gamma),
+          inline: true,
+        },
+        {
+          name: '🌪 Sigma',
+          value: formatSigma(engineInfo.calibration.sigma),
+          inline: true,
+        },
+        {
+          name: '🔥 Risky reserve',
+          value: formatReserve(engineInfo.reserve.reserveRisky, tokensInfo.riskyDecimals, tokensInfo.riskySymbol),
+          inline: true
+        },
+        {
+          name: '💵 Stable reserve',
+          value: formatReserve(engineInfo.reserve.reserveStable, tokensInfo.stableDecimals, tokensInfo.stableSymbol),
+          inline: true
+        },
+      )
+      .setTimestamp()
+      .setFooter({ text: 'Rinkeby', iconURL: 'https://ethereum.org/static/a183661dd70e0e5c70689a0ec95ef0ba/81d9f/eth-diamond-purple.webp' })
+
+    const thumbnailAttachment = await getThumbnail(
+      tokensInfo.riskySymbol,
+      tokensInfo.stableSymbol,
+    );
+
+    return {
+      embeds: [embed],
+      files: author.attachment ? [author.attachment, thumbnailAttachment] : [thumbnailAttachment],
+    };
+  } catch (e) {
+    throw new Error(`Cannot get create embed message: ${e}`);
   }
 }

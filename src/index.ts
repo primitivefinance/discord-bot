@@ -1,9 +1,9 @@
 import { TextChannel, Client, MessageEmbed } from 'discord.js';
-import { BigNumberish, Contract, providers } from 'ethers';
+import { BigNumberish, Contract, Event, providers } from 'ethers';
 import dotenv from 'dotenv';
 import { abi as managerAbi } from '@primitivefi/rmm-manager/artifacts/contracts/PrimitiveManager.sol/PrimitiveManager.json';
 
-import { getLiquidityEmbedMessage } from './utils';
+import { getLiquidityEmbedMessage, getCreateEmbedMessage } from './utils';
 
 dotenv.config();
 
@@ -26,6 +26,35 @@ client.on('ready', async () => {
     provider,
   );
 
+  manager.on('Create', async (
+    payer: string,
+    engine: string,
+    poolId: BigNumberish,
+    strike: BigNumberish,
+    sigma: BigNumberish,
+    maturity: BigNumberish,
+    gamma: BigNumberish,
+    delLiquidity: BigNumberish,
+    event: Event,
+  ) => {
+    const embedMessage = await getCreateEmbedMessage(
+      provider,
+      '0x42Ad527de7d4e9d9d011aC45B31D8551f8Fe9821',
+      payer,
+      engine,
+      poolId,
+      delLiquidity,
+      event,
+    );
+
+    const channel = client.channels.cache.get('934553459787718706') as TextChannel;
+
+    channel.send({
+      embeds: embedMessage.embeds,
+      files: embedMessage.files,
+    });
+  });
+
   manager.on('Allocate', async (
     payer: string,
     engine: string,
@@ -34,7 +63,7 @@ client.on('ready', async () => {
     delRisky: BigNumberish,
     delStable: BigNumberish,
     fromMargin: boolean,
-    event: any,
+    event: Event,
   ) => {
     const embedMessage = await getLiquidityEmbedMessage(
       'Liquidity allocated',
@@ -65,7 +94,7 @@ client.on('ready', async () => {
     delLiquidity: BigNumberish,
     delRisky: BigNumberish,
     delStable: BigNumberish,
-    event,
+    event: Event,
   ) => {
     const embedMessage = await getLiquidityEmbedMessage(
       'Liquidity removed',
