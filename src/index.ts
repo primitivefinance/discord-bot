@@ -67,6 +67,7 @@ client.on('ready', async () => {
         poolId,
         delLiquidity,
         event,
+        networkId,
       );
 
       const channelId = networkId === "1" ? config.channels.liquidityAlerts : config.channels.testAlerts;
@@ -100,6 +101,7 @@ client.on('ready', async () => {
         delRisky,
         delStable,
         event,
+        networkId,
       );
 
       const channelId = networkId === "1" ? config.channels.liquidityAlerts : config.channels.testAlerts;
@@ -132,6 +134,7 @@ client.on('ready', async () => {
         delRisky,
         delStable,
         event,
+        networkId,
       );
 
       const channelId = networkId === "1" ? config.channels.liquidityAlerts : config.channels.testAlerts;

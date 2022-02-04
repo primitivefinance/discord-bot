@@ -238,6 +238,36 @@ export function formatSpotprice(
   return spotPrice;
 }
 
+function getEtherscanBaseUrl(networkId: string): string {
+  switch (networkId) {
+    case '1':
+      return 'https://etherscan.io';
+    case '4':
+      return 'https://rinkeby.etherscan.io';
+    case '5':
+      return 'https://goerli.etherscan.io';
+    case '42':
+      return 'https://kovan.etherscan.io';
+    default:
+      return 'https://etherscan.io';
+  }
+}
+
+function getNetworkName(networkId: string): string {
+  switch (networkId) {
+    case '1':
+      return 'Mainnet';
+    case '4':
+      return 'Rinkeby';
+    case '5':
+      return 'Goerli';
+    case '42':
+      return 'Kovan';
+    default:
+      return 'Unknown network';
+  }
+}
+
 export async function getLiquidityEmbedMessage(
   title: string,
   action: string,
@@ -250,6 +280,7 @@ export async function getLiquidityEmbedMessage(
   delRisky: BigNumberish,
   delStable: BigNumberish,
   event: Event,
+  networkId: string,
 ): Promise<{
   embeds: MessageEmbed[],
   files: MessageAttachment[]
@@ -271,9 +302,11 @@ export async function getLiquidityEmbedMessage(
 
     const author = await getPayerInfo(provider, payer);
 
+    const etherscanBaseUrl = getEtherscanBaseUrl(networkId);
+
     const embed = new MessageEmbed()
       .setTitle(title)
-      .setURL(`https://rinkeby.etherscan.io/tx/${event.transactionHash}`)
+      .setURL(`${etherscanBaseUrl}/tx/${event.transactionHash}`)
       .setAuthor({
         name: author.name,
         url: author.url,
@@ -286,12 +319,12 @@ export async function getLiquidityEmbedMessage(
       .addFields(
         {
           name: '🔥 Risky',
-          value: `[${tokensInfo.riskySymbol}](https://rinkeby.etherscan.io/address/${engineInfo.riskyAddress})`,
+          value: `[${tokensInfo.riskySymbol}](${etherscanBaseUrl}/address/${engineInfo.riskyAddress})`,
           inline: true
         },
         {
           name: '💵 Stable',
-          value: `[${tokensInfo.stableSymbol}](https://rinkeby.etherscan.io/address/${engineInfo.stableAddress})`,
+          value: `[${tokensInfo.stableSymbol}](${etherscanBaseUrl}/address/${engineInfo.stableAddress})`,
           inline: true
         },
         {
@@ -326,7 +359,7 @@ export async function getLiquidityEmbedMessage(
         },
       )
       .setTimestamp()
-      .setFooter({ text: 'Rinkeby', iconURL: 'https://ethereum.org/static/a183661dd70e0e5c70689a0ec95ef0ba/81d9f/eth-diamond-purple.webp' })
+      .setFooter({ text: getNetworkName(networkId), iconURL: 'https://ethereum.org/static/a183661dd70e0e5c70689a0ec95ef0ba/81d9f/eth-diamond-purple.webp' })
 
     const thumbnailAttachment = await getThumbnail(
       tokensInfo.riskySymbol,
@@ -350,6 +383,7 @@ export async function getCreateEmbedMessage(
   poolId: BigNumberish,
   delLiquidity: BigNumberish,
   event: Event,
+  networkId: string,
 ): Promise<{
   embeds: MessageEmbed[],
   files: MessageAttachment[]
@@ -371,9 +405,11 @@ export async function getCreateEmbedMessage(
 
     const author = await getPayerInfo(provider, payer);
 
+    const etherscanBaseUrl = getEtherscanBaseUrl(networkId);
+
     const embed = new MessageEmbed()
       .setTitle('Pool created')
-      .setURL(`https://rinkeby.etherscan.io/tx/${event.transactionHash}`)
+      .setURL(`${etherscanBaseUrl}/tx/${event.transactionHash}`)
       .setAuthor({
         name: author.name,
         url: author.url,
@@ -386,12 +422,12 @@ export async function getCreateEmbedMessage(
       .addFields(
         {
           name: '🔥 Risky',
-          value: `[${tokensInfo.riskySymbol}](https://rinkeby.etherscan.io/address/${engineInfo.riskyAddress})`,
+          value: `[${tokensInfo.riskySymbol}](${etherscanBaseUrl}/address/${engineInfo.riskyAddress})`,
           inline: true
         },
         {
           name: '💵 Stable',
-          value: `[${tokensInfo.stableSymbol}](https://rinkeby.etherscan.io/address/${engineInfo.stableAddress})`,
+          value: `[${tokensInfo.stableSymbol}](${etherscanBaseUrl}/address/${engineInfo.stableAddress})`,
           inline: true
         },
         {
@@ -426,7 +462,7 @@ export async function getCreateEmbedMessage(
         },
       )
       .setTimestamp()
-      .setFooter({ text: 'Rinkeby', iconURL: 'https://ethereum.org/static/a183661dd70e0e5c70689a0ec95ef0ba/81d9f/eth-diamond-purple.webp' })
+      .setFooter({ text: getNetworkName(networkId), iconURL: 'https://ethereum.org/static/a183661dd70e0e5c70689a0ec95ef0ba/81d9f/eth-diamond-purple.webp' })
 
     const thumbnailAttachment = await getThumbnail(
       tokensInfo.riskySymbol,
