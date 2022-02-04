@@ -1,0 +1,14 @@
+{
+  "activeNetworks": ["4"],
+  "channels": {
+    "liquidityAlerts": "",
+    "swapAlerts": "",
+    "testAlerts": "934553459787718706"
+  },
+  "addresses": {
+    "4": {
+      "manager": "0x3662c4eCb5b3b0805C8Af689D664796Dc74fAB94",
+      "multicall": "0x42Ad527de7d4e9d9d011aC45B31D8551f8Fe9821"
+    }
+  }
+}
