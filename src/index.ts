@@ -39,7 +39,7 @@ client.on('ready', async () => {
 
     const provider = new providers.WebSocketProvider(
       process.env[`NETWORK_${networkId}`]!,
-      networkId,
+      parseInt(networkId, 10),
     );
 
     const manager = new Contract(
