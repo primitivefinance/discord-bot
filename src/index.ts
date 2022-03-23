@@ -81,6 +81,7 @@ client.on('ready', async () => {
 
     manager.on('Allocate', async (
       payer: string,
+      recipient: string,
       engine: string,
       poolId: BigNumberish,
       delLiquidity: BigNumberish,
@@ -94,7 +95,7 @@ client.on('ready', async () => {
         'allocated into',
         provider,
         config.addresses[networkId].multicall,
-        payer,
+        recipient,
         engine,
         poolId,
         delLiquidity,
