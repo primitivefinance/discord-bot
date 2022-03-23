@@ -390,18 +390,18 @@
   resolved "https://registry.yarnpkg.com/@openzeppelin/contracts/-/contracts-4.4.2.tgz#4e889c9c66e736f7de189a53f8ba5b8d789425c2"
   integrity sha512-NyJV7sJgoGYqbtNUWgzzOGW4T6rR19FmX1IJgXGdapGPWsuMelGJn9h03nos0iqfforCbCB0iYIR0MtIuIFLLw==
 
-"@primitivefi/rmm-core@^1.0.0-rc.1":
-  version "1.0.0-rc.1"
-  resolved "https://registry.yarnpkg.com/@primitivefi/rmm-core/-/rmm-core-1.0.0-rc.1.tgz#42e378e38d2f8655507c7e790de71c0a10622ff9"
-  integrity sha512-q9Syd9nSWv3xpfMIkPikmUDfDILubtWg8U1xHdlxOwxgQ/f33ZxnA0zje8XoAoce6utwTOn3MAbGpvxe4MIN6g==
+"@primitivefi/rmm-core@^1.0.0":
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/@primitivefi/rmm-core/-/rmm-core-1.0.0.tgz#cddd7d554f34179312a34208d40f4d4ff573970c"
+  integrity sha512-ac12fse0rRicTOJLssRPW+X36sZSefnZ/Dz9ElIwh586CiY8O+tJLWg4T/B1ymvDF2ils+RtSLWxMWQ1Mb4k9Q==
 
-"@primitivefi/rmm-manager@^1.0.0-rc.1":
-  version "1.0.0-rc.1"
-  resolved "https://registry.yarnpkg.com/@primitivefi/rmm-manager/-/rmm-manager-1.0.0-rc.1.tgz#6ca21e96d14f304e56e02aefaaea15d5a3352a2a"
-  integrity sha512-+aJOw8eU9b0B1dZOWkIWoAbApVOMf3DGzmKRBSV4ugSd2mMdlgMMoFosVpd3AZU4n79yBzM5LgvxM7y6Ley+sA==
+"@primitivefi/rmm-manager@^1.1.0":
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/@primitivefi/rmm-manager/-/rmm-manager-1.1.0.tgz#03439f248bd0df8711efc725fa006578aba4d2e2"
+  integrity sha512-8cS4j8fN3/MiYnxX5PPyB41c9aX3BjZqY9OLXWIhdzojUulIsqlOoP3D6mAVrCaKiobq1SQ5YNzTsnayr/NOaQ==
   dependencies:
     "@openzeppelin/contracts" "^4.1.0"
-    "@primitivefi/rmm-core" "^1.0.0-rc.1"
+    "@primitivefi/rmm-core" "^1.0.0"
     base64-sol "^1.1.0"
 
 "@primitivefi/rmm-math@^2.0.0-beta.3":
