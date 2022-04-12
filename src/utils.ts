@@ -9,16 +9,16 @@ import { MessageAttachment, MessageEmbed } from 'discord.js';
 import makeBlockie from 'ethereum-blockies-base64';
 import { abi as engineAbi } from '@primitivefi/rmm-core/artifacts/contracts/PrimitiveEngine.sol/PrimitiveEngine.json';
 import { getSpotPrice } from '@primitivefi/rmm-math';
+import numbro from 'numbro';
 
 import erc20Abi from './abis/erc20.json';
 import aggregate from './multicall';
 import tokens from './tokens.json';
 
-export function getPrettyAmount(amount: string) {
-  const split = amount.split('.');
-
-  const decimals = split[1] === '0' ? '' : `.${split[1].substr(0, 4)}`;
-  return `${split[0]}${decimals}`;
+export function getPrettyAmount(amount: string): string {
+  return numbro(amount).format({
+    thousandSeparated: true,
+  });
 }
 
 export async function getEngineInfo(
