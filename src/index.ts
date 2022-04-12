@@ -3,7 +3,7 @@ import { BigNumberish, Contract, Event, providers } from 'ethers';
 import dotenv from 'dotenv';
 import { abi as managerAbi } from '@primitivefi/rmm-manager/artifacts/contracts/PrimitiveManager.sol/PrimitiveManager.json';
 
-import { getLiquidityEmbedMessage, getCreateEmbedMessage } from './utils';
+import { getLiquidityEmbedMessage, getCreateEmbedMessage, getSwapEmbedMessage } from './utils';
 
 import Config from './config.json';
 
@@ -146,11 +146,72 @@ client.on('ready', async () => {
         files: embedMessage.files,
       });
     });
+
+    manager.on('Swap', async (
+      payer: string,
+      engine: string,
+      poolId: BigNumberish,
+      deltaIn: BigNumberish,
+      deltaOut: BigNumberish,
+      riskyForStable: boolean,
+      event: Event,
+    ) => {
+      const embedMessage = await getSwapEmbedMessage(
+        'Tokens swapped',
+        provider,
+        config.addresses[networkId].multicall,
+        payer,
+        engine,
+        poolId,
+        deltaIn,
+        deltaOut,
+        riskyForStable,
+        event,
+        networkId,
+      );
+
+      const channelId = networkId === "1" ? config.channels.liquidityAlerts : config.channels.testAlerts;
+      const channel = client.channels.cache.get(channelId) as TextChannel;
+
+      channel.send({
+        embeds: embedMessage.embeds,
+        files: embedMessage.files,
+      });
+    });
   }
 });
 
 client.on('messageCreate', async (msg) => {
-  // Does nothing right now
+  if (msg.content === '!testswapalert') {
+    const provider = new providers.WebSocketProvider('https://eth-mainnet.alchemyapi.io/v2/s33fwb9BGq-1_t_4G4u3stGB5pDU3g0f', 1);
+    const contract = new Contract(Config.addresses[1].manager, managerAbi, provider);
+    const swaps = await contract.queryFilter(contract.filters.Swap());
+    console.log(swaps);
+
+    const swap = swaps[0];
+    const networkId = '1';
+
+    const embedMessage = await getSwapEmbedMessage(
+      'Tokens swapped',
+      provider,
+      config.addresses[networkId].multicall,
+      swap.args!.payer,
+      swap.args!.engine,
+      swap.args!.poolId,
+      swap.args!.deltaIn,
+      swap.args!.deltaOut,
+      swap.args!.riskyForStable,
+      swap,
+      networkId,
+    );
+
+    const channel = client.channels.cache.get(config.channels.testAlerts) as TextChannel;
+
+    channel.send({
+      embeds: embedMessage.embeds,
+      files: embedMessage.files,
+    });
+  }
 });
 
 client.login(process.env.TOKEN);
