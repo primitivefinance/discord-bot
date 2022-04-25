@@ -170,7 +170,7 @@ client.on('ready', async () => {
         networkId,
       );
 
-      const channelId = networkId === "1" ? config.channels.liquidityAlerts : config.channels.testAlerts;
+      const channelId = networkId === "1" ? config.channels.swapAlerts : config.channels.testAlerts;
       const channel = client.channels.cache.get(channelId) as TextChannel;
 
       channel.send({
